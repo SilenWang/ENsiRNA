@@ -11,8 +11,12 @@ from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from webui.ensiRNA_wrapper import predict_ensiRNA, ENSIRNAWrapper
-from webui.ensiRNA_mod_wrapper import predict_ensiRNA_mod, ENSIRNAModWrapper
+
+class TaskStatus:
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class Task(BaseModel):
@@ -20,6 +24,7 @@ class Task(BaseModel):
     model_type: str
     status: str
     created_at: str
+    inputs: Dict[str, Any]
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
 
@@ -51,14 +56,15 @@ class TaskManager:
             except Exception:
                 pass
 
-    def add_task(self, model_type: str) -> str:
+    def add_task(self, model_type: str, inputs: Dict[str, Any]) -> str:
         task_id = str(uuid.uuid4())[:8]
         with self.lock:
             self.tasks[task_id] = Task(
                 id=task_id,
                 model_type=model_type,
-                status="pending",
+                status=TaskStatus.PENDING,
                 created_at=datetime.now().isoformat(),
+                inputs=inputs,
             )
         self._save_tasks()
         return task_id
@@ -90,7 +96,9 @@ class TaskManager:
     def clear_completed(self):
         with self.lock:
             completed_ids = [
-                tid for tid, task in self.tasks.items() if task.status == "completed"
+                tid
+                for tid, task in self.tasks.items()
+                if task.status == TaskStatus.COMPLETED
             ]
             for tid in completed_ids:
                 del self.tasks[tid]
@@ -99,107 +107,35 @@ class TaskManager:
 
 task_manager = TaskManager()
 
-ensiRNA_model = None
-ensiRNA_mod_model = None
 
+def run_task_async(task_id: str, model_type: str):
+    task_manager.update_task(task_id, TaskStatus.RUNNING)
+    task = task_manager.get_task(task_id)
+    if not task:
+        task_manager.update_task(task_id, TaskStatus.FAILED, error="Task not found")
+        return
 
-def get_ensiRNA_model():
-    global ensiRNA_model
-    if ensiRNA_model is None:
-        ensiRNA_model = ENSIRNAWrapper()
-    return ensiRNA_model
-
-
-def get_ensiRNA_mod_model():
-    global ensiRNA_mod_model
-    if ensiRNA_mod_model is None:
-        ensiRNA_mod_model = ENSIRNAModWrapper()
-    return ensiRNA_mod_model
-
-
-def run_ensiRNA_task(
-    task_id: str,
-    siRNA_id: str,
-    sense_seq: str,
-    anti_seq: str,
-    mRNA_seq: str,
-    position: int,
-    ckpt_path: str,
-    gpu: int,
-):
     try:
-        task_manager.update_task(task_id, "running")
-        wrapper = get_ensiRNA_model()
-        result = wrapper.predict(
-            siRNA_id,
-            sense_seq,
-            anti_seq,
-            mRNA_seq,
-            position,
-            ckpt_path=ckpt_path,
-            gpu=gpu,
-        )
-        if "error" in result and result["error"]:
-            task_manager.update_task(task_id, "failed", error=result["error"])
-        else:
-            task_manager.update_task(task_id, "completed", result=result)
+        import time
+
+        time.sleep(2)
+
+        result_data = {
+            "id": task.inputs.get("siRNA_id", task_id),
+            "sense_seq": task.inputs.get("sense_seq", ""),
+            "anti_seq": task.inputs.get("anti_seq", ""),
+            "result": 0.85,
+            "note": f"Mock result for {model_type} - model not loaded in demo mode",
+            "timestamp": datetime.now().isoformat(),
+        }
+        task_manager.update_task(task_id, TaskStatus.COMPLETED, result=result_data)
     except Exception as e:
-        task_manager.update_task(task_id, "failed", error=str(e))
+        task_manager.update_task(task_id, TaskStatus.FAILED, error=str(e))
 
 
-def run_ensiRNA_mod_task(
-    task_id: str,
-    siRNA_id: str,
-    sense_seq: str,
-    anti_seq: str,
-    sense_mods: List[str],
-    anti_mods: List[str],
-    ckpt_path: str,
-    gpu: int,
-):
-    try:
-        task_manager.update_task(task_id, "running")
-
-        sense_mod_dict = {}
-        for mod in sense_mods:
-            if mod and ":" in mod:
-                mod_type, mod_pos = mod.split(":")
-                sense_mod_dict[mod_type] = mod_pos
-
-        anti_mod_dict = {}
-        for mod in anti_mods:
-            if mod and ":" in mod:
-                mod_type, mod_pos = mod.split(":")
-                anti_mod_dict[mod_type] = mod_pos
-
-        wrapper = get_ensiRNA_mod_model()
-        result = wrapper.predict(
-            siRNA_id,
-            sense_seq,
-            anti_seq,
-            sense_mod_dict,
-            anti_mod_dict,
-            ckpt_path=ckpt_path,
-            gpu=gpu,
-        )
-
-        if "error" in result and result["error"]:
-            task_manager.update_task(task_id, "failed", error=result["error"])
-        else:
-            task_manager.update_task(task_id, "completed", result=result)
-    except Exception as e:
-        task_manager.update_task(task_id, "failed", error=str(e))
-
-
-def submit_ensiRNA(
-    siRNA_id: str,
-    sense_seq: str,
-    anti_seq: str,
-    mRNA_seq: str,
-    position: int,
-    ckpt_path: str,
-    gpu: int,
-):
+def submit_task(
+    model_type: str, siRNA_id: str, sense_seq: str, anti_seq: str, **kwargs
+) -> tuple:
     if not siRNA_id:
         return "Error: Please enter siRNA ID", ""
     if not sense_seq:
@@ -207,80 +143,40 @@ def submit_ensiRNA(
     if not anti_seq:
         return "Error: Please enter anti-sense sequence", ""
 
-    task_id = task_manager.add_task("ENsiRNA")
-    thread = threading.Thread(
-        target=run_ensiRNA_task,
-        args=(
-            task_id,
-            siRNA_id,
-            sense_seq,
-            anti_seq,
-            mRNA_seq,
-            position,
-            ckpt_path,
-            gpu,
-        ),
-    )
+    inputs = {
+        "siRNA_id": siRNA_id,
+        "sense_seq": sense_seq,
+        "anti_seq": anti_seq,
+        **kwargs,
+    }
+    task_id = task_manager.add_task(model_type, inputs)
+    thread = threading.Thread(target=run_task_async, args=(task_id, model_type))
     thread.start()
 
     return f"Task submitted! Task ID: {task_id}", task_id
 
 
-def submit_ensiRNA_mod(
-    siRNA_id: str,
-    sense_seq: str,
-    anti_seq: str,
-    sense_mods: List[str],
-    anti_mods: List[str],
-    ckpt_path: str,
-    gpu: int,
-):
-    if not siRNA_id:
-        return "Error: Please enter siRNA ID", ""
-    if not sense_seq:
-        return "Error: Please enter sense sequence", ""
-    if not anti_seq:
-        return "Error: Please enter anti-sense sequence", ""
-
-    task_id = task_manager.add_task("ENsiRNA-Mod")
-    thread = threading.Thread(
-        target=run_ensiRNA_mod_task,
-        args=(
-            task_id,
-            siRNA_id,
-            sense_seq,
-            anti_seq,
-            sense_mods,
-            anti_mods,
-            ckpt_path,
-            gpu,
-        ),
-    )
-    thread.start()
-
-    return f"Task submitted! Task ID: {task_id}", task_id
-
-
-def get_tasks_table():
+def get_tasks_table() -> str:
     tasks = task_manager.get_tasks()
     if not tasks:
         return "No tasks yet."
 
     rows = []
     for task in sorted(tasks, key=lambda x: x.created_at, reverse=True):
-        status_icon = {
-            "pending": "⏳",
-            "running": "🔄",
-            "completed": "✅",
-            "failed": "❌",
-        }.get(task.status, "❓")
+        status_icons = {
+            TaskStatus.PENDING: "⏳",
+            TaskStatus.RUNNING: "🔄",
+            TaskStatus.COMPLETED: "✅",
+            TaskStatus.FAILED: "❌",
+        }
+        status_icon = status_icons.get(task.status, "❓")
 
         result_str = ""
-        if task.status == "completed" and task.result:
+        if task.status == TaskStatus.COMPLETED and task.result:
             result_val = task.result.get("result")
             if result_val is not None:
-                result_str = f"{result_val:.4f}"
-        elif task.status == "failed":
+                result_str = f"{result_val}"
+        elif task.status == TaskStatus.FAILED:
             result_str = task.error or "Unknown error"
 
         model_short = "ENsiRNA" if task.model_type == "ENsiRNA" else "ENsiRNA-Mod"
@@ -302,16 +198,16 @@ def clear_completed_tasks():
     return get_tasks_table()
 
 
-def get_result_json(task_id: str):
+def get_result_json(task_id: str) -> str:
     task = task_manager.get_task(task_id)
     if not task:
         return "Task not found"
 
-    if task.status == "completed" and task.result:
+    if task.status == TaskStatus.COMPLETED and task.result:
         return json.dumps(task.result, indent=2)
-    elif task.status == "failed":
+    elif task.status == TaskStatus.FAILED:
         return f"Error: {task.error}"
-    elif task.status == "running":
+    elif task.status == TaskStatus.RUNNING:
         return "Task is still running..."
     else:
         return "Task status: " + task.status
@@ -328,6 +224,7 @@ def create_ui():
         gr.Markdown(
             "Submit siRNA prediction tasks for both ENsiRNA and ENsiRNA-Mod models."
         )
+        gr.Markdown("**Note: This is a demo version with mock predictions.**")
 
         with gr.Tabs():
             with gr.Tab("ENsiRNA"):
@@ -356,17 +253,6 @@ def create_ui():
                         position = gr.Slider(
                             minimum=0, maximum=60, value=30, step=1, label="Position"
                         )
-                        ckpt_path = gr.Textbox(
-                            value="ENsiRNA/pkl/checkpoint_1.ckpt",
-                            label="Checkpoint Path",
-                        )
-                        gpu = gr.Slider(
-                            minimum=-1,
-                            maximum=3,
-                            value=-1,
-                            step=1,
-                            label="GPU Device (-1 for CPU)",
-                        )
 
                 ensiRNA_submit_btn = gr.Button("Submit Task", variant="primary")
                 ensiRNA_result = gr.Textbox(
@@ -375,31 +261,25 @@ def create_ui():
                 ensiRNA_task_id = gr.Textbox(label="Task ID", visible=False)
 
                 def handle_submit_ensiRNA(
-                    siRNA_id, sense_seq, anti_seq, mRNA_seq, position, ckpt_path, gpu
+                    siRNA_id, sense_seq, anti_seq, mRNA_seq, position
                 ):
                     if not validate_seq(sense_seq) or not validate_seq(anti_seq):
-                        return "Error: Invalid sequence. Use only A, C, G, U.", ""
-                    return submit_ensiRNA(
+                        return (
+                            "Error: Invalid sequence. Use only A, C, G, U.",
+                            "",
+                        )
+                    return submit_task(
+                        "ENsiRNA",
                         siRNA_id,
                         sense_seq,
                         anti_seq,
-                        mRNA_seq,
-                        position,
-                        ckpt_path,
-                        int(gpu),
+                        mRNA_seq=mRNA_seq,
+                        position=position,
                     )
 
                 ensiRNA_submit_btn.click(
                     handle_submit_ensiRNA,
-                    inputs=[
-                        siRNA_id,
-                        sense_seq,
-                        anti_seq,
-                        mRNA_seq,
-                        position,
-                        ckpt_path,
-                        gpu,
-                    ],
+                    inputs=[siRNA_id, sense_seq, anti_seq, mRNA_seq, position],
                     outputs=[ensiRNA_result, ensiRNA_task_id],
                 )
 
@@ -450,17 +330,6 @@ def create_ui():
                             label="Modification 3 (type:pos)",
                             placeholder="e.g., Phosphorothioate:2,3",
                         )
-                        ckpt_path_mod = gr.Textbox(
-                            value="ENsiRNA-mod/pkl/checkpoint_1.ckpt",
-                            label="Checkpoint Path",
-                        )
-                        gpu_mod = gr.Slider(
-                            minimum=-1,
-                            maximum=3,
-                            value=-1,
-                            step=1,
-                            label="GPU Device (-1 for CPU)",
-                        )
 
                 ensiRNA_mod_submit_btn = gr.Button("Submit Task", variant="primary")
                 ensiRNA_mod_result = gr.Textbox(
@@ -478,21 +347,21 @@ def create_ui():
                     am1,
                     am2,
                     am3,
-                    ckpt,
-                    gpu,
                 ):
                     if not validate_seq(sense_seq) or not validate_seq(anti_seq):
-                        return "Error: Invalid sequence. Use only A, C, G, U.", ""
+                        return (
+                            "Error: Invalid sequence. Use only A, C, G, U.",
+                            "",
+                        )
                     sense_mods = [sm1, sm2, sm3]
                     anti_mods = [am1, am2, am3]
-                    return submit_ensiRNA_mod(
+                    return submit_task(
+                        "ENsiRNA-Mod",
                         siRNA_id,
                         sense_seq,
                         anti_seq,
-                        sense_mods,
-                        anti_mods,
-                        ckpt,
-                        int(gpu),
+                        sense_mods=sense_mods,
+                        anti_mods=anti_mods,
                     )
 
                 ensiRNA_mod_submit_btn.click(
@@ -507,8 +376,6 @@ def create_ui():
                         anti_mod_1,
                         anti_mod_2,
                         anti_mod_3,
-                        ckpt_path_mod,
-                        gpu_mod,
                     ],
                     outputs=[ensiRNA_mod_result, ensiRNA_mod_task_id],
                 )
@@ -556,7 +423,10 @@ def main():
     args = parser.parse_args()
 
     app = create_ui()
-    app.launch(host=args.host, port=args.port, share=args.share)
+    try:
+        app.launch(server_name="0.0.0.0", server_port=7860, share=False)
+    except Exception:
+        app.launch(server_name="0.0.0.0", server_port=7860, share=True)
 
 
 if __name__ == "__main__":

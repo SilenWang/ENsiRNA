@@ -25,6 +25,7 @@ viennarna = "2.6.4.*"
 torch = { version = "*", index = "https://download.pytorch.org/whl/cu118" }
 torchvision = { version = "*", index = "https://download.pytorch.org/whl/cu118" }
 torchaudio = { version = "*", index = "https://download.pytorch.org/whl/cu118" }
+fair-esm = ">=2"
 
 [tasks]
 start = "python webui/app.py"

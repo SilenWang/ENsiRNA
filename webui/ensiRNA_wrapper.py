@@ -9,11 +9,14 @@ from typing import Dict, Any, Optional
 import torch
 from torch.utils.data import DataLoader
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _root_dir)
+sys.path.insert(0, os.path.join(_root_dir, "webui"))
+sys.path.insert(0, os.path.join(_root_dir, "ENsiRNA"))
 
-from ENsiRNA.data.dataset import E2EDataset
-from ENsiRNA.model.mask_model import RNAmaskModel
-from ENsiRNA.utils.random_seed import setup_seed
+from data.dataset import E2EDataset
+from model.mask_model import RNAmaskModel
+from utils.random_seed import setup_seed
 
 
 class ENSIRNAWrapper:
