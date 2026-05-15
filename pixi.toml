@@ -1,31 +1,27 @@
 [workspace]
-channels = ["conda-forge", "bioconda"]
+channels = ["conda-forge", "bioconda", "pytorch"]
 name = "ensirna_env"
 platforms = ["linux-64"]
-version = "0.1.0"
+version = "0.1.1"
 
 [tasks]
 
 [dependencies]
-viennarna = "2.6.4.*"
+viennarna = ">=2.6.4,<3"
 python = "3.10.*"
-biopython = ">=1.87,<2"
-numpy = ">=2.2.6,<3"
-pandas = ">=2.3.3,<3"
-scipy = ">=1.15.2,<2"
+biopython = "*"
+numpy = "*"
+pandas = "*"
+scipy = "*"
 tensorboard = ">=2.20.0,<3"
-tqdm = ">=4.67.3,<5"
-openpyxl = ">=3.1.5,<4"
+tqdm = "*"
+openpyxl = "*"
 scikit-learn = ">=1.7.2,<2"
 rdkit = ">=2026.3.2,<2027"
 xgboost = ">=3.2.0,<4"
-pip = ">=26.1.1,<27"
 
-[tool.pip]
-dependencies = [
-    "torch==2.5.1",
-    "torchvision==0.20.1",
-    "torchaudio==2.5.1",
-    "rna-fm",
-    "torch-geometric",
-]
+pytorch = { version = ">=2.0", channel = "pytorch" }
+
+[pypi-dependencies]
+rna-fm = "*"
+torch-geometric = "*"
