@@ -136,7 +136,34 @@ pixi run gdown 1F7cNJXMNPSjFb0UvDkDRHTkt9Tt4EGWe
 unzip pdb_files.zip -d pdb_data/
 ```
 
-#### 方式 B：生成近似 PDB 结构
+#### 方式 B：使用 Rosetta 生成 PDB 结构（原始项目方法）
+
+原始项目使用 Rosetta 的 `rna_denovo` 进行 RNA 3D 结构预测。需要先安装 Rosetta 并配置 `data/get_pdb.py`：
+
+1. **获取 Rosetta**：从 [https://www.rosettacommons.org](https://www.rosettacommons.org) 下载 Rosetta（需学术/商业许可）
+2. **配置 `data/get_pdb.py` 中的 Rosetta 路径**：编辑文件顶部三个路径变量，指向你的 Rosetta 安装目录：
+   ```python
+   RF='/path/to/rosetta.binary.linux.release-371'
+   FF='/path/to/rosetta/main/source/bin/rna_denovo.static.linuxgccrelease'
+   EX='/path/to/rosetta/main/tools/rna_tools/silent_util/extract_lowscore_decoys.py'
+   ```
+3. **运行脚本**（需在 `ENsiRNA-mod/` 目录下执行）：
+   ```bash
+   pixi run python -m data.get_pdb \
+     -f dataset/train_88_1.xlsx dataset/valid_88_1.xlsx \
+     -p pdb_data
+   ```
+   脚本会：
+   - 使用 ViennaRNA 的 RNAplex 预测 sense/anti 链的二级结构
+   - 调用 Rosetta `rna_denovo.static.linuxgccrelease` 进行 RNA 3D 结构折叠
+   - 使用 `extract_lowscore_decoys.py` 提取最优构象为 PDB
+   - 并行计算 `atom_mask`（每个残基的糖/磷酸/碱基修饰编码）和 `smask`（修饰位置标记）
+   - 输出 JSON lines 文件，包含：ID, sense seq, sense raw seq, anti seq, anti raw seq, PCT, sense mod, sense pos, anti mod, anti pos, start, cc, pdb_data_path, atom_mask, smask
+   - 使用 multiprocessing 并行处理多个样本
+   
+   > 注意：`get_pdb.py` 的 `secondary_structure` 默认开启，基于二级结构进行 Rosetta 折叠。修饰数据相关逻辑（`atom_mask`、`smask` 等）由 `get_atommod` 和 `get_smask` 方法在 `process()` 阶段自动处理。
+
+#### 方式 C：生成近似 PDB 结构（无需 Rosetta）
 
 无法获取原始 PDB 时，可使用脚本生成：
 
