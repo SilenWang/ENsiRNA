@@ -98,15 +98,40 @@ cp RNA-FM_pretrained.pth ~/.cache/torch/hub/checkpoints/RNA-FM_pretrained.pth
 
 ### 2.2 获取 PDB 结构文件
 
-模型训练需要 siRNA 的 3D 结构（PDB 格式）。有两种方式获取：
+模型训练需要 siRNA 的 3D 结构（PDB 格式）。有以下三种方式获取：
 
 #### 方式 A：下载预折叠 PDB 文件（推荐）
 
 >The pre-folded PDB files for ENsiRNA are available at https://drive.google.com/file/d/1XHuFuqW7s93lBmCrZH70jN-41hmsF071/view?usp=drive_link The pre-folded PDB files for ENsiRNA-mod are available at https://drive.google.com/file/d/1F7cNJXMNPSjFb0UvDkDRHTkt9Tt4EGWe/view?usp=drive_link
 
-#### 方式 B：生成近似 PDB 结构（无需 Rosetta）
+#### 方式 B：使用 Rosetta 生成 PDB 结构（原始项目方法）
 
-如果无法获取原始 PDB 文件，可以使用数据准备脚本基于序列生成近似结构：
+原始项目使用 Rosetta 的 `rna_denovo` 进行 RNA 3D 结构预测。需要先安装 Rosetta 并配置 `data/get_pdb.py`：
+
+1. **获取 Rosetta**：从 [https://www.rosettacommons.org](https://www.rosettacommons.org) 下载 Rosetta（需学术/商业许可）
+2. **配置 `data/get_pdb.py` 中的 Rosetta 路径**：编辑文件顶部三个路径变量，指向你的 Rosetta 安装目录：
+   ```python
+   RF='/path/to/rosetta.binary.linux.release-371'
+   FF='/path/to/rosetta/main/source/bin/rna_denovo.static.linuxgccrelease'
+   EX='/path/to/rosetta/main/tools/rna_tools/silent_util/extract_lowscore_decoys.py'
+   ```
+3. **运行脚本**（需在 `ENsiRNA/` 目录下执行）：
+   ```bash
+   pixi run python -m data.get_pdb \
+     -f dataset/train_1.csv dataset/valid_1.csv \
+     -p pdb_data
+   ```
+   脚本会：
+   - 使用 ViennaRNA 的 RNAplex 预测 sense/anti 链的二级结构
+   - 调用 Rosetta `rna_denovo.static.linuxgccrelease` 进行 RNA 3D 结构折叠（带 `-minimize_rna` 优化）
+   - 使用 `extract_lowscore_decoys.py` 提取最优构象为 PDB
+   - 输出 JSON lines 文件，每条记录包含 `siRNA`、`mRNA_seq`、`position`、`sense seq`、`anti seq`、`efficacy`、`start`、`chain` 和 `pdb_data_path`
+
+   > 注意：`get_pdb.py` 使用 `self.secondary_structure = True`（默认），即基于二级结构的 Rosetta 折叠。如需直接使用 Rosetta 的 `build_init_pose` 构建初始结构（无二级结构优化），可将 `data/get_pdb.py` 中该变量改为 `False`。
+
+#### 方式 C：生成近似 PDB 结构（无需 Rosetta）
+
+如果无法获取 Rosetta 或原始 PDB 文件，可使用数据准备脚本基于序列生成近似结构：
 
 ```bash
 pixi run python prepare_data.py \
@@ -116,7 +141,7 @@ pixi run python prepare_data.py \
 
 此脚本会：
 1. 读取 CSV 文件，生成 JSON lines 格式（含 siRNA、mRNA_seq、position、sense seq、anti seq、efficacy 等字段）
-2. 为每个 RNA 序列生简单的 A-型螺旋 PDB 结构
+2. 为每个 RNA 序列生成简单的 A-型螺旋 PDB 结构
 
 ### 2.3 数据预处理说明
 
