@@ -8,8 +8,6 @@
 
 ### 1.1 安装 Pixi
 
-Pixi 是 conda/pip 的替代工具，用于创建可复现的 Python 环境。
-
 ```bash
 curl -fsSL https://pixi.sh/install.sh | bash
 ```
@@ -31,41 +29,38 @@ cd ensirna_env
 
 ```toml
 [workspace]
-channels = ["conda-forge", "bioconda"]
+channels = ["conda-forge", "bioconda", "pytorch"]
 name = "ensirna_env"
 platforms = ["linux-64"]
-version = "0.1.0"
+version = "0.1.1"
 
 [tasks]
 
 [dependencies]
-viennarna = "2.6.4.*"
+viennarna = ">=2.6.4,<3"
 python = "3.10.*"
-pip = "*"
-biopython = ">=1.87,<2"
-numpy = ">=2.2.6,<3"
-pandas = ">=2.3.3,<3"
-scipy = ">=1.15.2,<2"
+biopython = "*"
+numpy = "*"
+pandas = "*"
+scipy = "*"
 tensorboard = ">=2.20.0,<3"
-tqdm = ">=4.67.3,<5"
-openpyxl = ">=3.1.5,<4"
+tqdm = "*"
+openpyxl = "*"
 scikit-learn = ">=1.7.2,<2"
 rdkit = ">=2026.3.2,<2027"
 xgboost = ">=3.2.0,<4"
+
+pytorch = { version = ">=2.0", channel = "pytorch" }
+
+[pypi-dependencies]
+rna-fm = "*"
+torch-geometric = "*"
 ```
 
-安装 conda 依赖：
+安装依赖：
 
 ```bash
 pixi install
-```
-
-### 1.3 安装 PyTorch 和 CUDA 支持
-
-```bash
-# 安装 PyTorch 2.5.1 with CUDA 12.4
-pixi run pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-  --index-url https://download.pytorch.org/whl/cu124
 ```
 
 验证 CUDA 可用性：
@@ -74,13 +69,7 @@ pixi run pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
 pixi run python -c "import torch; print('CUDA:', torch.cuda.is_available())"
 ```
 
-### 1.4 安装其他 Python 依赖
-
-```bash
-pixi run pip install rna-fm torch-geometric
-```
-
-### 1.5 下载 RNA-FM 预训练权重
+### 1.3 下载 RNA-FM 预训练权重
 
 RNA-FM 模型权重需要从 HuggingFace 下载（约 1.14 GB）：
 
@@ -113,13 +102,7 @@ cp RNA-FM_pretrained.pth ~/.cache/torch/hub/checkpoints/RNA-FM_pretrained.pth
 
 #### 方式 A：下载预折叠 PDB 文件（推荐）
 
-```bash
-# 从 Google Drive 下载（如可访问）
-pixi run pip install gdown
-pixi run gdown 1XHuFuqW7s93lBmCrZH70jN-41hmsF071
-# 解压到 pdb_data/ 目录
-unzip pdb_files.zip -d pdb_data/
-```
+>The pre-folded PDB files for ENsiRNA are available at https://drive.google.com/file/d/1XHuFuqW7s93lBmCrZH70jN-41hmsF071/view?usp=drive_link The pre-folded PDB files for ENsiRNA-mod are available at https://drive.google.com/file/d/1F7cNJXMNPSjFb0UvDkDRHTkt9Tt4EGWe/view?usp=drive_link
 
 #### 方式 B：生成近似 PDB 结构（无需 Rosetta）
 
