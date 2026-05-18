@@ -1,0 +1,6 @@
+ENsiRNA/pdb_data
+**/*.pyc
+
+ENsiRNA/dataset/*.json
+ENsiRNA/model_pkl
+ENsiRNA/dataset/*processed
