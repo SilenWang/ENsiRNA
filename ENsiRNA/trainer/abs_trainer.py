@@ -214,7 +214,14 @@ class Trainer:
                 json.dump(self.config.__dict__, fout, indent=2)
         # main device
         main_device_id = local_rank if local_rank != -1 else device_ids[0]
-        device = torch.device('cpu' if main_device_id == -1 else f'cuda:{main_device_id}')
+        if main_device_id == -1:
+            device = torch.device('cpu')
+        elif torch.cuda.is_available():
+            device = torch.device(f'cuda:{main_device_id}')
+        elif torch.backends.mps.is_available():
+            device = torch.device('mps')
+        else:
+            device = torch.device('cpu')
         self.model.to(device)
         if local_rank != -1:
             print_log(f'Using data parallel, local rank {local_rank}, all {device_ids}')
