@@ -31,7 +31,7 @@ cd ensirna_env
 [workspace]
 channels = ["conda-forge", "bioconda", "pytorch"]
 name = "ensirna_env"
-platforms = ["linux-64"]
+platforms = ["linux-64", "osx-arm64"]
 version = "0.1.1"
 
 [tasks]
@@ -40,7 +40,7 @@ version = "0.1.1"
 viennarna = ">=2.6.4,<3"
 python = "3.10.*"
 biopython = "*"
-numpy = "*"
+numpy = ">=1,<2"
 pandas = "*"
 scipy = "*"
 tensorboard = ">=2.20.0,<3"
@@ -49,6 +49,7 @@ openpyxl = "*"
 scikit-learn = ">=1.7.2,<2"
 rdkit = ">=2026.3.2,<2027"
 xgboost = ">=3.2.0,<4"
+pip = "*"
 
 pytorch = { version = ">=2.0", channel = "pytorch" }
 
@@ -63,13 +64,24 @@ torch-geometric = "*"
 pixi install
 ```
 
-验证 CUDA 可用性：
+验证设备可用性：
 
 ```bash
+# Linux (CUDA)
 pixi run python -c "import torch; print('CUDA:', torch.cuda.is_available())"
+# macOS (Apple Silicon MPS)
+pixi run python -c "import torch; print('MPS:', torch.backends.mps.is_available())"
 ```
 
+### macOS 注意事项
+
+- 平台配置：`platforms` 需包含 `osx-arm64`（Apple Silicon）或 `osx-64`（Intel）
+- numpy 需锁定 `>=1,<2` 以避免与 PyTorch 2.2.2 的兼容性问题
+- 需要添加 `pip = "*"` 到 conda 依赖以使 `[pypi-dependencies]` 正常工作
+
 ### 1.3 下载 RNA-FM 预训练权重
+
+> RNA-FM 权重文件较大（约 1.14 GB），如果网络无法访问 HuggingFace，需要手动放置权重文件到 `ENsiRNA/RNA-FM_pretrained.pth`。
 
 RNA-FM 模型权重需要从 HuggingFace 下载（约 1.14 GB）：
 
@@ -312,3 +324,33 @@ curl -L -o ~/.cache/torch/hub/checkpoints/RNA-FM_pretrained.pth \
 --gpus -1
 ```
 注意 CPU 训练速度会慢 5-10 倍。
+
+### Q5: macOS (Apple Silicon) 训练
+
+在 macOS Apple Silicon 上，训练会自动使用 MPS (Metal Performance Shaders) 加速：
+
+```bash
+# 需要设置 MPS fallback 环境变量以支持不支持的算子
+PYTORCH_ENABLE_MPS_FALLBACK=1 pixi run python run_training.py \
+  --train_set dataset/train_1.json \
+  --valid_set dataset/valid_1.json \
+  --gpus 0 \
+  --model_type RNAmaskModel \
+  --embed_dim 128 \
+  --hidden_size 256 \
+  --k_neighbors 9 \
+  --n_layers 2 \
+  --batch_size 16 \
+  --lr 1e-4 \
+  --final_lr 1e-5 \
+  --max_epoch 100 \
+  --save_dir model_pkl \
+  --shuffle \
+  --num_workers 0
+```
+
+注意：
+- `PYTORCH_ENABLE_MPS_FALLBACK=1` 是必需的，因为部分算子（如 `index_copy`）MPS 尚未原生支持
+- MPS 训练速度约为 RTX 3060 的 40-50%（约 3 分钟/epoch，batch_size=16，2252 样本）
+- 训练时 `--gpus 0` 会自动检测 MPS 可用性并切换到 MPS 设备
+- 代码中的 `data/dataset.py` 和 `trainer/abs_trainer.py` 已适配自动设备检测
