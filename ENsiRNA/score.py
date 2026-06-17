@@ -50,7 +50,7 @@ def gen_pdb(sense, anti, path):
             x, y, z = radius * np.cos(ang), radius * np.sin(ang), i * rise
             for atom, off in [("P", 0), ("C4'", 1.5)]:
                 ox = x + off * np.cos(ang + 0.5); oy = y + off * np.sin(ang + 0.5)
-                f.write(f"ATOM  {aidx:5d}  {atom:<3s} {base:3s} A{ridx:4d}    {ox:8.3f}{oy:8.3f}{oz:8.3f}  1.00  0.00           {atom[0]:>2s}\n")
+                f.write(f"ATOM  {aidx:5d}  {atom:<3s} {base:3s} A{ridx:4d}    {ox:8.3f}{oy:8.3f}{z:8.3f}  1.00  0.00           {atom[0]:>2s}\n")
                 aidx += 1
             sc = sc_map.get(base, "N1")
             sx, sy, sz = 1.2*radius*np.cos(ang+0.26), 1.2*radius*np.sin(ang+0.26), z
@@ -62,7 +62,7 @@ def gen_pdb(sense, anti, path):
             x, y, z = radius*np.cos(ang), radius*np.sin(ang), (len(sense)-1-i)*rise
             for atom, off in [("P", 0), ("C4'", 1.5)]:
                 ox = x + off*np.cos(ang+0.5); oy = y + off*np.sin(ang+0.5)
-                f.write(f"ATOM  {aidx:5d}  {atom:<3s} {comp:3s} B{ridx:4d}    {ox:8.3f}{oy:8.3f}{oz:8.3f}  1.00  0.00           {atom[0]:>2s}\n")
+                f.write(f"ATOM  {aidx:5d}  {atom:<3s} {comp:3s} B{ridx:4d}    {ox:8.3f}{oy:8.3f}{z:8.3f}  1.00  0.00           {atom[0]:>2s}\n")
                 aidx += 1
             sc = sc_map.get(comp, "N1")
             sx, sy = 1.2*radius*np.cos(ang+0.26), 1.2*radius*np.sin(ang+0.26)
