@@ -5,6 +5,22 @@ platforms = ["linux-64", "osx-arm64"]
 version = "0.1.1"
 
 [tasks]
+# Training
+train = { cmd = "bash ENsiRNA/train.sh", description = "Train ENsiRNA model using config.json: pixi run train config.json" }
+train:custom = { cmd = "python ENsiRNA/run_training.py", description = "Train with CLI args: pixi run train:custom -- --train_set dataset/train_1.json ..." }
+train:multigpu = { cmd = "bash ENsiRNA/train.sh", depends-on = ["train"], description = "Multi-GPU training: GPU=\"0,1\" ADDR=localhost PORT=9901 pixi run train:multigpu config.json" }
+
+# Data preparation
+prepare-data = { cmd = "python ENsiRNA/prepare_data.py", description = "Generate PDB + JSON from CSV: pixi run prepare-data -- --csv_dir dataset --pdb_dir pdb_data" }
+get-pdb = { cmd = "python -m ENsiRNA.data.get_pdb", description = "Generate PDB with Rosetta: pixi run get-pdb -- -f dataset/train_1.csv -p pdb_data" }
+
+# Prediction
+predict = { cmd = "python ENsiRNA/predict.py", description = "Batch prediction from mRNA FASTA: pixi run predict -- -f mrna.fasta -o results" }
+score = { cmd = "python ENsiRNA/score.py", description = "Score a single siRNA-mRNA pair: pixi run score -- --sense <seq> --mrna <seq>" }
+test = { cmd = "python ENsiRNA/test.py", description = "Evaluate a checkpoint: pixi run test -- --ckpt pkl/checkpoint_1.ckpt --test_set dataset/valid_1.json --gpu 0" }
+
+# Utility
+check-device = { cmd = "python -c \"import torch; print('CUDA:', torch.cuda.is_available()); print('MPS:', torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else 'N/A')\"", description = "Check CUDA/MPS availability" }
 
 [dependencies]
 viennarna = ">=2.6.4,<3"
