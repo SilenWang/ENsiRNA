@@ -20,7 +20,14 @@ def generate(args):
     df_out=pd.DataFrame()
     for j in range(len(args.ckpt)):
         model = torch.load(args.ckpt[j], map_location='cpu', weights_only=False)
-        device = torch.device('cpu' if args.gpu == -1 else f'cuda:{args.gpu}')
+        if args.gpu == -1:
+            device = torch.device('cpu')
+        elif torch.cuda.is_available():
+            device = torch.device(f'cuda:{args.gpu}')
+        elif torch.backends.mps.is_available():
+            device = torch.device('mps')
+        else:
+            device = torch.device('cpu')
         model.to(device)
         model.eval()
      
