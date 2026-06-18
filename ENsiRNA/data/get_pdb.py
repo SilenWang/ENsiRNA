@@ -12,22 +12,32 @@ import subprocess
 import multiprocessing
 
 
-# example （5'->3' and 3'->5'）
-# seq1 = "CUUACGCUGAGUACUUCGA".lower()
-# seq2 = "GAAUGCGACUCAUGAAGCU".lower()[::-1]
-
-# python -m data.get_pdb
-RF = "/home/silen/project/ENsiRNA-Proj/rosetta.binary.linux.release-371"
-FF = "/home/silen/project/ENsiRNA-Proj/rosetta.binary.linux.release-371/main/source/bin/rna_denovo.static.linuxgccrelease"
-EX = "/home/silen/project/ENsiRNA-Proj/rosetta.binary.linux.release-371/main/tools/rna_tools/silent_util/extract_lowscore_decoys.py"
-
-# MOD_VOCAB.mod2index acsiRNA_mod atom_mod
+# Default Rosetta paths (can be overridden via env vars or constructor args)
+#   ROSETTA_DIR       — root directory of the Rosetta installation
+#   RNA_DENOVO_EXEC   — path to rna_denovo executable
+#   EXTRACT_DECOYS    — path to extract_lowscore_decoys.py
+_DEFAULT_RF = os.environ.get("ROSETTA_DIR", "")
+_DEFAULT_FF = os.environ.get(
+    "RNA_DENOVO_EXEC",
+    os.path.join(_DEFAULT_RF, "main", "source", "bin",
+                 "rna_denovo.static.linuxgccrelease"),
+)
+_DEFAULT_EX = os.environ.get(
+    "EXTRACT_DECOYS",
+    os.path.join(_DEFAULT_RF, "main", "tools", "rna_tools",
+                 "silent_util", "extract_lowscore_decoys.py"),
+)
 
 
 class Data_Prepare:
-    def __init__(self, excel_dir, pdb_dir):
+    def __init__(self, excel_dir, pdb_dir,
+                 rosetta_dir=None, rna_denovo_exec=None, extract_decoys=None):
         self.excel_dir = excel_dir
         self.pdb_dir = os.path.abspath(pdb_dir)
+
+        self.rf = rosetta_dir or _DEFAULT_RF
+        self.ff = rna_denovo_exec or _DEFAULT_FF
+        self.ex = extract_decoys or _DEFAULT_EX
 
         self.json_dir = excel_dir[:-4] + ".json"
         self.secondary_structure = True
@@ -169,14 +179,13 @@ class Data_Prepare:
         os.chdir(f"{self.pdb_dir}/{data['siRNA']}")
 
         subprocess.run(
-            [FF, "-sequence", seq, "-secstruct", secondary_seq, "-minimize_rna"]
+            [self.ff, "-sequence", seq, "-secstruct", secondary_seq, "-minimize_rna"]
         )
-        subprocess.run(["python", EX, "default.out", "-rosetta_folder", RF, "1"])
+        subprocess.run(["python", self.ex, "default.out", "-rosetta_folder", self.rf, "1"])
         subprocess.run(
             ["cp", "default.out.1.pdb", f"{self.pdb_dir}/{data['siRNA']}.pdb"]
         )
 
-        # os.chdir(f"/public2022/tanwenchong/rna/EnModSIRNA-1main")
         subprocess.run(["rm", "-r", f"{self.pdb_dir}/{data['siRNA']}"])
 
         if os.path.exists(f"{self.pdb_dir}/{data['siRNA']}.pdb"):
