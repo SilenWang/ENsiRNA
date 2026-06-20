@@ -7,8 +7,8 @@ version = "0.1.1"
 [tasks]
 # Training
 train = { cmd = "bash ENsiRNA/train.sh", description = "Train ENsiRNA model using config.json: pixi run train config.json" }
-train:custom = { cmd = "python ENsiRNA/run_training.py", description = "Train with CLI args: pixi run train:custom -- --train_set dataset/train_1.json ..." }
-train:multigpu = { cmd = "bash ENsiRNA/train.sh", depends-on = ["train"], description = "Multi-GPU training: GPU=\"0,1\" ADDR=localhost PORT=9901 pixi run train:multigpu config.json" }
+"train:custom" = { cmd = "python ENsiRNA/run_training.py", description = "Train with CLI args: pixi run train:custom -- --train_set dataset/train_1.json ..." }
+"train:multigpu" = { cmd = "bash ENsiRNA/train.sh", depends-on = ["train"], description = "Multi-GPU training: GPU=0,1 ADDR=localhost PORT=9901 pixi run train:multigpu config.json" }
 
 # Data preparation
 prepare-data = { cmd = "python ENsiRNA/prepare_data.py", description = "Generate PDB + JSON from CSV: pixi run prepare-data -- --csv_dir dataset --pdb_dir pdb_data" }
