@@ -5,6 +5,16 @@ platforms = ["linux-64", "osx-arm64"]
 version = "0.1.1"
 
 [tasks]
+# Training
+train = { cmd = "bash ENsiRNA/train.sh", description = "Train model using config.json: pixi run train ENsiRNA/config.json" }
+train_direct = { cmd = "python ENsiRNA/run_training.py", description = "Train with CLI args: pixi run train_direct -- --train_set dataset/train_1.json --valid_set dataset/valid_1.json --gpus -1 --batch_size 16 --save_dir model_pkl --model_type RNAmaskModel" }
+train_macos = { cmd = "python ENsiRNA/run_training.py", description = "Train on macOS (MPS): PYTORCH_ENABLE_MPS_FALLBACK=1 pixi run train_macos -- --train_set ... --gpus 0 --num_workers 0" }
+
+# Data preparation
+prepare_data = { cmd = "python ENsiRNA/prepare_data.py", description = "Generate PDB + JSON from CSV: pixi run prepare_data -- --csv_dir dataset --pdb_dir pdb_data --json_dir dataset" }
+
+# Check device
+check_device = { cmd = "python -c \"import torch; print('CUDA:', torch.cuda.is_available()); print('MPS:', torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else 'N/A')\"", description = "Check device availability" }
 
 [dependencies]
 viennarna = ">=2.6.4,<3"
