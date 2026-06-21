@@ -15,7 +15,7 @@
 
 
 ########## setup project directory ##########
-CODE_DIR=`realpath $(dirname "$0")/../..`
+CODE_DIR="$(cd "$(dirname "$0")/../.." && pwd -P)"
 echo "Locate the project folder at ${CODE_DIR}"
 
 
@@ -47,4 +47,8 @@ fi
 
 ########## start training ##########
 #cd $CODE_DIR
-${PREFIX} train.py --gpu "${!GPU_ARR[@]}" ${CONFIG}
+if [ "${GPU_ARR[0]}" = "-1" ]; then
+    ${PREFIX} train.py --gpus -1 ${CONFIG}
+else
+    ${PREFIX} train.py --gpus "${GPU_ARR[@]}" ${CONFIG}
+fi

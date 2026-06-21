@@ -14,6 +14,7 @@ def rna_fm_t12_local(model_location=None):
 fm.pretrained.rna_fm_t12 = rna_fm_t12_local
 
 import argparse
+import platform
 from torch.utils.data import DataLoader
 from data.dataset import E2EDataset, VOCAB
 from trainer import TrainConfig
@@ -37,7 +38,7 @@ def parse():
     parser.add_argument('--patience', type=int, default=1000)
     parser.add_argument('--save_topk', type=int, default=10)
     parser.add_argument('--shuffle', action='store_true')
-    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--gpus', type=int, nargs='+', required=True)
     parser.add_argument("--local_rank", type=int, default=-1)
     parser.add_argument('--model_type', type=str, required=True, choices=['RNAModel','RNAmaskModel','RNAGNNModel'])
